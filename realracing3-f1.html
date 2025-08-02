@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Racing 3 - Formula 1</title>
+    <style>
+        body {
+            background: linear-gradient(45deg, #0a0a0a, #1a1a1a, #0a0a0a);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            position: absolute;
+            left: 30px;
+            top: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            z-index: 1000;
+        }
+        .back-btn:hover {
+            background: #c0392b;
+        }
+        .fullscreen-btn {
+            position: absolute;
+            right: 30px;
+            top: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #27ae60;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            z-index: 1000;
+        }
+        .fullscreen-btn:hover {
+            background: #229954;
+        }
+        .camera-btn {
+            position: absolute;
+            right: 30px;
+            top: 80px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            z-index: 1000;
+        }
+        .camera-btn:hover {
+            background: #2980b9;
+        }
+        .game-frame {
+            background: #111;
+            border-radius: 16px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #87CEEB, #98FB98);
+            border: 3px solid #e74c3c;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+        }
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 100;
+        }
+        .info {
+            margin-top: 20px;
+            display: flex;
+            gap: 30px;
+            font-size: 1.2rem;
+        }
+        .controls-info {
+            background: #333;
+            border: 2px solid #e74c3c;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 500px;
+        }
+        .controls-info h3 {
+            margin: 0 0 10px 0;
+            color: #e74c3c;
+        }
+        .controls-info p {
+            margin: 5px 0;
+            color: #ccc;
+        }
+        .weather-info {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='index.html'">&larr; Back</button>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    <button class="camera-btn" onclick="changeCamera()">📷 Camera</button>
+    <div class="header">
+        <h1>Real Racing 3 - Formula 1</h1>
+    </div>
+    <div class="controls-info">
+        <h3>Controls</h3>
+        <p>Arrow Keys: Steer left/right</p>
+        <p>Up Arrow: Accelerate</p>
+        <p>Down Arrow: Brake</p>
+        <p>D: DRS (when available)</p>
+        <p>C: Change Camera</p>
+        <p>Complete 3 laps to win!</p>
+    </div>
+    <div class="game-frame">
+        <div style="position: relative;">
+            <canvas id="gameCanvas" width="1000" height="600"></canvas>
+            <div class="hud">
+                <div id="lapHud">Lap: 1/3</div>
+                <div id="positionHud">Position: 1st</div>
+                <div id="speedHud">Speed: 0 km/h</div>
+                <div id="timeHud">Time: 00:00</div>
+            </div>
+            <div class="weather-info" id="weatherInfo">
+                <div>Weather: Sunny</div>
+                <div>Track Temp: 25°C</div>
+                <div>DRS: Available</div>
+            </div>
+        </div>
+        <div class="info">
+            <div id="lap">Lap: 1/3</div>
+            <div id="position">Position: 1st</div>
+            <div id="speed">Speed: 0 km/h</div>
+            <div id="time">Time: 00:00</div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game variables
+        let player = {
+            x: 500,
+            y: 500,
+            width: 50,
+            height: 25,
+            speed: 0,
+            maxSpeed: 8,
+            acceleration: 0.2,
+            deceleration: 0.15,
+            turnSpeed: 0.1,
+            angle: 0,
+            fuel: 100,
+            tireWear: 100,
+            engineTemp: 80,
+            gear: 1,
+            rpm: 0,
+            drs: false,
+            drsAvailable: true,
+            tireCompound: 'soft',
+            brakeTemp: 60,
+            suspension: 100,
+            aero: 100
+        };
+        
+        let opponents = [];
+        let checkpoints = [];
+        let lap = 1;
+        let maxLaps = 3;
+        let gameTime = 0;
+        let isGameOver = false;
+        let isWinner = false;
+        let playerPosition = 1;
+        let cameraMode = 0;
+        let weather = 'sunny';
+        let trackTemp = 25;
+        let drsZones = [
+            {x: 400, y: 300, width: 200, height: 100},
+            {x: 600, y: 200, width: 150, height: 80}
+        ];
+        
+        // Real Racing 3 style track
+        let trackPoints = [
+            {x: 500, y: 500, name: 'Start/Finish'},
+            {x: 500, y: 450, name: 'Turn 1'},
+            {x: 550, y: 420, name: 'Turn 2'},
+            {x: 620, y: 400, name: 'Turn 3'},
+            {x: 700, y: 380, name: 'Turn 4'},
+            {x: 750, y: 320, name: 'Turn 5'},
+            {x: 780, y: 250, name: 'Turn 6'},
+            {x: 750, y: 180, name: 'Turn 7'},
+            {x: 680, y: 120, name: 'Turn 8'},
+            {x: 600, y: 100, name: 'Turn 9'},
+            {x: 520, y: 120, name: 'Turn 10'},
+            {x: 450, y: 160, name: 'Turn 11'},
+            {x: 400, y: 220, name: 'Turn 12'},
+            {x: 380, y: 300, name: 'Turn 13'},
+            {x: 400, y: 380, name: 'Turn 14'},
+            {x: 450, y: 420, name: 'Turn 15'},
+            {x: 500, y: 500, name: 'Start/Finish'}
+        ];
+        
+        // Create Real Racing 3 style opponents
+        function createOpponents() {
+            const teams = [
+                {name: 'Mercedes', color: '#00D2BE', performance: 1.0, driver: 'Hamilton'},
+                {name: 'Red Bull', color: '#0600EF', performance: 0.98, driver: 'Verstappen'},
+                {name: 'Ferrari', color: '#DC0000', performance: 0.96, driver: 'Leclerc'},
+                {name: 'McLaren', color: '#FF8700', performance: 0.94, driver: 'Norris'},
+                {name: 'Alpine', color: '#0090FF', performance: 0.92, driver: 'Ocon'},
+                {name: 'Aston Martin', color: '#006F62', performance: 0.90, driver: 'Alonso'}
+            ];
+            
+            for (let i = 0; i < 6; i++) {
+                const team = teams[i];
+                const opponent = {
+                    x: 500 + (i - 3) * 40,
+                    y: 500,
+                    width: 50,
+                    height: 25,
+                    speed: 0,
+                    maxSpeed: 7 + (team.performance * 1.5),
+                    acceleration: 0.18 + (team.performance * 0.05),
+                    angle: 0,
+                    targetPoint: 0,
+                    color: team.color,
+                    team: team.name,
+                    driver: team.driver,
+                    fuel: 100,
+                    tireWear: 100,
+                    engineTemp: 80 + Math.random() * 20,
+                    strategy: Math.random() > 0.5 ? 'aggressive' : 'conservative',
+                    tireCompound: ['soft', 'medium', 'hard'][Math.floor(Math.random() * 3)],
+                    drs: false,
+                    brakeTemp: 60 + Math.random() * 20,
+                    suspension: 100,
+                    aero: 100
+                };
+                opponents.push(opponent);
+            }
+        }
+        
+        function createCheckpoints() {
+            for (let i = 0; i < trackPoints.length - 1; i++) {
+                checkpoints.push({
+                    x: trackPoints[i].x,
+                    y: trackPoints[i].y,
+                    next: i + 1,
+                    sector: i < 5 ? 1 : i < 10 ? 2 : 3,
+                    name: trackPoints[i].name
+                });
+            }
+        }
+        
+        function updatePlayer() {
+            if (keys['ArrowUp']) {
+                player.speed = Math.min(player.speed + player.acceleration, player.maxSpeed);
+                player.fuel = Math.max(player.fuel - 0.15, 0);
+                player.engineTemp = Math.min(player.engineTemp + 0.3, 130);
+                player.rpm = Math.min(player.rpm + 60, 15000);
+                player.brakeTemp = Math.max(player.brakeTemp - 0.5, 40);
+            } else if (keys['ArrowDown']) {
+                player.speed = Math.max(player.speed - player.acceleration * 2.5, 0);
+                player.engineTemp = Math.max(player.engineTemp - 0.2, 60);
+                player.rpm = Math.max(player.rpm - 150, 0);
+                player.brakeTemp = Math.min(player.brakeTemp + 2, 200);
+            } else {
+                player.speed = Math.max(player.speed - player.deceleration, 0);
+                player.engineTemp = Math.max(player.engineTemp - 0.1, 60);
+                player.rpm = Math.max(player.rpm - 80, 0);
+                player.brakeTemp = Math.max(player.brakeTemp - 0.3, 40);
+            }
+            
+            if (keys['ArrowLeft']) {
+                player.angle -= player.turnSpeed;
+                player.tireWear = Math.max(player.tireWear - 0.08, 0);
+                player.suspension = Math.max(player.suspension - 0.02, 50);
+            }
+            if (keys['ArrowRight']) {
+                player.angle += player.turnSpeed;
+                player.tireWear = Math.max(player.tireWear - 0.08, 0);
+                player.suspension = Math.max(player.suspension - 0.02, 50);
+            }
+            
+            // DRS system
+            if (keys['KeyD'] && player.drsAvailable && player.speed > 3) {
+                player.drs = true;
+                player.maxSpeed = 9;
+            } else {
+                player.drs = false;
+                player.maxSpeed = 8;
+            }
+            
+            // Check if in DRS zone
+            player.drsAvailable = false;
+            drsZones.forEach(zone => {
+                if (player.x > zone.x && player.x < zone.x + zone.width &&
+                    player.y > zone.y && player.y < zone.y + zone.height) {
+                    player.drsAvailable = true;
+                }
+            });
+            
+            // Gear system
+            if (player.speed > 0) {
+                if (player.speed < 1.5) player.gear = 1;
+                else if (player.speed < 2.5) player.gear = 2;
+                else if (player.speed < 3.5) player.gear = 3;
+                else if (player.speed < 4.5) player.gear = 4;
+                else if (player.speed < 5.5) player.gear = 5;
+                else if (player.speed < 6.5) player.gear = 6;
+                else if (player.speed < 7.5) player.gear = 7;
+                else player.gear = 8;
+            }
+            
+            // Update position
+            player.x += Math.cos(player.angle) * player.speed;
+            player.y += Math.sin(player.angle) * player.speed;
+            
+            // Keep player on track
+            player.x = Math.max(50, Math.min(canvas.width - 50, player.x));
+            player.y = Math.max(50, Math.min(canvas.height - 50, player.y));
+            
+            // Performance degradation
+            if (player.tireWear < 20) {
+                player.maxSpeed = Math.max(5, player.maxSpeed - 0.02);
+            }
+            if (player.engineTemp > 110) {
+                player.acceleration = Math.max(0.05, player.acceleration - 0.002);
+            }
+            if (player.fuel < 10) {
+                player.maxSpeed = Math.max(4, player.maxSpeed - 0.03);
+            }
+            if (player.brakeTemp > 150) {
+                player.deceleration = Math.max(0.05, player.deceleration - 0.001);
+            }
+        }
+        
+        function updateOpponents() {
+            opponents.forEach((opponent, index) => {
+                const targetPoint = trackPoints[opponent.targetPoint];
+                const dx = targetPoint.x - opponent.x;
+                const dy = targetPoint.y - opponent.y;
+                const targetAngle = Math.atan2(dy, dx);
+                
+                let angleDiff = targetAngle - opponent.angle;
+                if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                opponent.angle += angleDiff * 0.03;
+                
+                let targetSpeed = opponent.maxSpeed;
+                if (opponent.strategy === 'conservative') {
+                    targetSpeed *= 0.85;
+                    opponent.fuel = Math.max(opponent.fuel - 0.08, 0);
+                } else {
+                    opponent.fuel = Math.max(opponent.fuel - 0.2, 0);
+                    opponent.tireWear = Math.max(opponent.tireWear - 0.03, 0);
+                }
+                
+                if (opponent.tireWear < 20) targetSpeed *= 0.75;
+                if (opponent.fuel < 10) targetSpeed *= 0.6;
+                if (opponent.engineTemp > 110) targetSpeed *= 0.85;
+                if (opponent.brakeTemp > 150) targetSpeed *= 0.9;
+                
+                opponent.speed = Math.min(opponent.speed + opponent.acceleration, targetSpeed);
+                opponent.x += Math.cos(opponent.angle) * opponent.speed;
+                opponent.y += Math.sin(opponent.angle) * opponent.speed;
+                
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 40) {
+                    opponent.targetPoint = (opponent.targetPoint + 1) % trackPoints.length;
+                }
+                
+                opponent.x = Math.max(50, Math.min(canvas.width - 50, opponent.x));
+                opponent.y = Math.max(50, Math.min(canvas.height - 50, opponent.y));
+                
+                if (opponent.speed > 0) {
+                    opponent.engineTemp = Math.min(opponent.engineTemp + 0.15, 140);
+                } else {
+                    opponent.engineTemp = Math.max(opponent.engineTemp - 0.08, 60);
+                }
+                
+                opponent.drsAvailable = false;
+                drsZones.forEach(zone => {
+                    if (opponent.x > zone.x && opponent.x < zone.x + zone.width &&
+                        opponent.y > zone.y && opponent.y < zone.y + zone.height) {
+                        opponent.drsAvailable = true;
+                    }
+                });
+                
+                if (opponent.drsAvailable && opponent.speed > 3) {
+                    opponent.drs = true;
+                    opponent.maxSpeed = opponent.maxSpeed * 1.1;
+                } else {
+                    opponent.drs = false;
+                }
+            });
+        }
+        
+        function checkLapCompletion() {
+            const startPoint = trackPoints[0];
+            const distance = Math.sqrt(
+                Math.pow(player.x - startPoint.x, 2) + 
+                Math.pow(player.y - startPoint.y, 2)
+            );
+            
+            if (distance < 60 && player.speed > 2) {
+                lap++;
+                
+                const lapTime = gameTime - (lap - 1) * 60;
+                if (lapTime < bestLapTime) {
+                    bestLapTime = lapTime;
+                }
+                
+                if (lap > maxLaps) {
+                    isGameOver = true;
+                    isWinner = true;
+                }
+            }
+        }
+        
+        function updatePosition() {
+            const allCars = [{x: player.x, y: player.y, isPlayer: true}, ...opponents];
+            
+            allCars.forEach(car => {
+                const distance = Math.sqrt(
+                    Math.pow(car.x - trackPoints[0].x, 2) + 
+                    Math.pow(car.y - trackPoints[0].y, 2)
+                );
+                car.progress = distance;
+            });
+            
+            allCars.sort((a, b) => a.progress - b.progress);
+            
+            const playerIndex = allCars.findIndex(car => car.isPlayer);
+            playerPosition = playerIndex + 1;
+        }
+        
+        function drawTrack() {
+            // Real Racing 3 style sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98FB98');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Track with Real Racing 3 style
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 100;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+            for (let i = 1; i < trackPoints.length; i++) {
+                ctx.lineTo(trackPoints[i].x, trackPoints[i].y);
+            }
+            ctx.stroke();
+            
+            // Track borders
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+            for (let i = 1; i < trackPoints.length; i++) {
+                ctx.lineTo(trackPoints[i].x, trackPoints[i].y);
+            }
+            ctx.stroke();
+            
+            // DRS zones
+            drsZones.forEach(zone => {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 5]);
+                ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+                ctx.setLineDash([]);
+            });
+            
+            // Checkered flag
+            ctx.fillStyle = '#000';
+            ctx.fillRect(trackPoints[0].x - 25, trackPoints[0].y - 25, 50, 50);
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    if ((i + j) % 2 === 0) {
+                        ctx.fillStyle = '#fff';
+                    } else {
+                        ctx.fillStyle = '#000';
+                    }
+                    ctx.fillRect(
+                        trackPoints[0].x - 25 + i * 10,
+                        trackPoints[0].y - 25 + j * 10,
+                        10, 10
+                    );
+                }
+            }
+        }
+        
+        function drawCar(x, y, angle, color, isPlayer = false, drs = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            
+            // Real Racing 3 style car body
+            ctx.fillStyle = color;
+            ctx.fillRect(-25, -12, 50, 24);
+            
+            // Car details
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-20, -10, 40, 20);
+            
+            // Wheels
+            ctx.fillStyle = '#000';
+            ctx.fillRect(-28, -15, 6, 30);
+            ctx.fillRect(22, -15, 6, 30);
+            
+            // Front wing
+            ctx.fillStyle = '#666';
+            ctx.fillRect(-35, -8, 15, 16);
+            
+            // Rear wing
+            ctx.fillStyle = '#666';
+            ctx.fillRect(20, -8, 15, 16);
+            
+            // DRS flap
+            if (drs) {
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(20, -4, 15, 8);
+            }
+            
+            // Driver helmet
+            if (isPlayer) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.beginPath();
+                ctx.arc(0, -8, 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Side pods
+            ctx.fillStyle = '#444';
+            ctx.fillRect(-15, -8, 30, 16);
+            
+            ctx.restore();
+        }
+        
+        function drawHUD() {
+            // Real Racing 3 style HUD
+            const speedPercent = (player.speed / player.maxSpeed) * 100;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 10, 200, 25);
+            ctx.fillStyle = speedPercent > 85 ? '#e74c3c' : '#27ae60';
+            ctx.fillRect(10, 10, (200 * speedPercent) / 100, 25);
+            
+            const rpmPercent = (player.rpm / 15000) * 100;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 40, 150, 20);
+            ctx.fillStyle = rpmPercent > 90 ? '#e74c3c' : '#f39c12';
+            ctx.fillRect(10, 40, (150 * rpmPercent) / 100, 20);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 65, 120, 15);
+            ctx.fillStyle = player.fuel < 20 ? '#e74c3c' : '#27ae60';
+            ctx.fillRect(10, 65, (120 * player.fuel) / 100, 15);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 85, 100, 12);
+            ctx.fillStyle = player.tireWear < 30 ? '#e74c3c' : '#f39c12';
+            ctx.fillRect(10, 85, (100 * player.tireWear) / 100, 12);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 102, 80, 10);
+            ctx.fillStyle = player.engineTemp > 100 ? '#e74c3c' : '#3498db';
+            ctx.fillRect(10, 102, (80 * player.engineTemp) / 130, 10);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 117, 60, 8);
+            ctx.fillStyle = player.brakeTemp > 120 ? '#e74c3c' : '#9b59b6';
+            ctx.fillRect(10, 117, (60 * player.brakeTemp) / 200, 8);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Gear: ${player.gear}`, 10, 140);
+            
+            if (player.drs) {
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('DRS', 10, 160);
+            }
+            
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = 'bold 28px Arial';
+            ctx.fillText(`${playerPosition}${getOrdinalSuffix(playerPosition)}`, 10, 190);
+        }
+        
+        function getOrdinalSuffix(num) {
+            if (num === 1) return 'st';
+            if (num === 2) return 'nd';
+            if (num === 3) return 'rd';
+            return 'th';
+        }
+        
+        function drawGameOver() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = isWinner ? '#27ae60' : '#e74c3c';
+            ctx.font = '3rem Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(isWinner ? 'RACE WINNER!' : 'GAME OVER', canvas.width/2, canvas.height/2 - 50);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '1.5rem Arial';
+            ctx.fillText(`Final Position: ${playerPosition}${getOrdinalSuffix(playerPosition)}`, canvas.width/2, canvas.height/2 - 10);
+            ctx.fillText(`Race Time: ${formatTime(gameTime)}`, canvas.width/2, canvas.height/2 + 20);
+            if (bestLapTime !== Infinity) {
+                ctx.fillText(`Best Lap: ${formatTime(bestLapTime)}`, canvas.width/2, canvas.height/2 + 50);
+            }
+            ctx.fillText('Press Space to Restart', canvas.width/2, canvas.height/2 + 90);
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 100);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+        }
+        
+        function changeCamera() {
+            cameraMode = (cameraMode + 1) % 3;
+        }
+        
+        function restart() {
+            player = {
+                x: 500,
+                y: 500,
+                width: 50,
+                height: 25,
+                speed: 0,
+                maxSpeed: 8,
+                acceleration: 0.2,
+                deceleration: 0.15,
+                turnSpeed: 0.1,
+                angle: 0,
+                fuel: 100,
+                tireWear: 100,
+                engineTemp: 80,
+                gear: 1,
+                rpm: 0,
+                drs: false,
+                drsAvailable: true,
+                tireCompound: 'soft',
+                brakeTemp: 60,
+                suspension: 100,
+                aero: 100
+            };
+            opponents = [];
+            createOpponents();
+            lap = 1;
+            gameTime = 0;
+            isGameOver = false;
+            isWinner = false;
+            playerPosition = 1;
+            bestLapTime = Infinity;
+            cameraMode = 0;
+        }
+        
+        function update() {
+            if (isGameOver) return;
+            
+            gameTime += 1/60;
+            
+            updatePlayer();
+            updateOpponents();
+            checkLapCompletion();
+            updatePosition();
+            
+            document.getElementById('weatherInfo').innerHTML = `
+                <div>Weather: ${weather}</div>
+                <div>Track Temp: ${trackTemp}°C</div>
+                <div>DRS: ${player.drsAvailable ? 'Available' : 'Not Available'}</div>
+            `;
+            
+            const speedKmh = Math.round(player.speed * 30);
+            document.getElementById('lap').textContent = `Lap: ${lap}/${maxLaps}`;
+            document.getElementById('position').textContent = `Position: ${playerPosition}${getOrdinalSuffix(playerPosition)}`;
+            document.getElementById('speed').textContent = `Speed: ${speedKmh} km/h`;
+            document.getElementById('time').textContent = `Time: ${formatTime(gameTime)}`;
+            
+            document.getElementById('lapHud').textContent = `Lap: ${lap}/${maxLaps}`;
+            document.getElementById('positionHud').textContent = `Position: ${playerPosition}${getOrdinalSuffix(playerPosition)}`;
+            document.getElementById('speedHud').textContent = `Speed: ${speedKmh} km/h`;
+            document.getElementById('timeHud').textContent = `Time: ${formatTime(gameTime)}`;
+        }
+        
+        function draw() {
+            drawTrack();
+            
+            opponents.forEach(opponent => {
+                drawCar(opponent.x, opponent.y, opponent.angle, opponent.color, false, opponent.drs);
+            });
+            
+            drawCar(player.x, player.y, player.angle, '#e74c3c', true, player.drs);
+            
+            drawHUD();
+            
+            if (isGameOver) {
+                drawGameOver();
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        let keys = {};
+        document.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'Space' && isGameOver) {
+                restart();
+            }
+        });
+        
+        document.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('msfullscreenchange', updateFullscreenButton);
+        
+        function updateFullscreenButton() {
+            const btn = document.querySelector('.fullscreen-btn');
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                btn.textContent = '⛶ Exit Fullscreen';
+            } else {
+                btn.textContent = '⛶ Fullscreen';
+            }
+        }
+        
+        createOpponents();
+        createCheckpoints();
+        gameLoop();
+    </script>
+</body>
+</html> 

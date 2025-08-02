@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paratrooper</title>
+    <style>
+        body {
+            background: linear-gradient(45deg, #2c3e50, #34495e, #1a1a2e);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            position: absolute;
+            left: 30px;
+            top: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .back-btn:hover {
+            background: #c0392b;
+        }
+        .fullscreen-btn {
+            position: absolute;
+            right: 30px;
+            top: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #27ae60;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .fullscreen-btn:hover {
+            background: #229954;
+        }
+        .game-frame {
+            background: #111;
+            border-radius: 16px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #87CEEB, #98FB98);
+            border: 3px solid #e74c3c;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+        }
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+        .info {
+            margin-top: 20px;
+            display: flex;
+            gap: 30px;
+            font-size: 1.2rem;
+        }
+        .controls-info {
+            background: #333;
+            border: 2px solid #e74c3c;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 400px;
+        }
+        .controls-info h3 {
+            margin: 0 0 10px 0;
+            color: #e74c3c;
+        }
+        .controls-info p {
+            margin: 5px 0;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="location.href='index.html'">&larr; Back</button>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    <div class="header">
+        <h1>Paratrooper</h1>
+    </div>
+    <div class="controls-info">
+        <h3>Controls</h3>
+        <p>Arrow Keys: Move left/right</p>
+        <p>Space: Shoot</p>
+        <p>Shoot the paratroopers before they land!</p>
+    </div>
+    <div class="game-frame">
+        <div style="position: relative;">
+            <canvas id="gameCanvas" width="600" height="600"></canvas>
+            <div class="hud">
+                <div id="scoreHud">Score: 0</div>
+                <div id="livesHud">Lives: 3</div>
+            </div>
+        </div>
+        <div class="info">
+            <div id="score">Score: 0</div>
+            <div id="lives">Lives: 3</div>
+            <div id="level">Level: 1</div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game variables
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            width: 30,
+            height: 40,
+            speed: 5
+        };
+        
+        let bullets = [];
+        let paratroopers = [];
+        let helicopters = [];
+        let bombers = [];
+        let bombs = [];
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let isGameOver = false;
+        let paratrooperTimer = 0;
+        let helicopterTimer = 0;
+        let bomberTimer = 0;
+        let bulletSpeed = 8;
+        let paratrooperSpeed = 1;
+        let bombSpeed = 3;
+        
+        // Colors
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+        
+        function createBomber() {
+            const bomber = {
+                x: Math.random() * (canvas.width - 100),
+                y: 30,
+                width: 100,
+                height: 25,
+                speed: 3 + Math.random() * 2,
+                direction: Math.random() > 0.5 ? 1 : -1, // 1 for right, -1 for left
+                dropTimer: 0,
+                color: '#8B4513'
+            };
+            bombers.push(bomber);
+        }
+        
+        function createHelicopter() {
+            const helicopter = {
+                x: Math.random() * (canvas.width - 80),
+                y: 50,
+                width: 80,
+                height: 30,
+                speed: 2 + Math.random() * 2,
+                direction: Math.random() > 0.5 ? 1 : -1, // 1 for right, -1 for left
+                dropTimer: 0,
+                color: '#34495e'
+            };
+            helicopters.push(helicopter);
+        }
+        
+        function createBomb(x, y) {
+            const bomb = {
+                x: x,
+                y: y,
+                width: 12,
+                height: 20,
+                speed: bombSpeed,
+                color: '#2c3e50'
+            };
+            bombs.push(bomb);
+        }
+        
+        function createParatrooper(x, y) {
+            const paratrooper = {
+                x: x || Math.random() * (canvas.width - 30),
+                y: y || -50,
+                width: 30,
+                height: 40,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                landed: false
+            };
+            paratroopers.push(paratrooper);
+        }
+        
+        function createBullet() {
+            const bullet = {
+                x: player.x + player.width / 2 - 2,
+                y: player.y,
+                width: 4,
+                height: 10,
+                speed: bulletSpeed
+            };
+            bullets.push(bullet);
+            // Cost 1 point for each shot
+            score -= 1;
+        }
+        
+        function updatePlayer() {
+            // Player movement (will be handled by key events)
+        }
+        
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.y -= bullet.speed;
+                
+                // Remove bullets that go off screen
+                if (bullet.y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateBombers() {
+            for (let i = bombers.length - 1; i >= 0; i--) {
+                const bomber = bombers[i];
+                
+                // Move bomber
+                bomber.x += bomber.speed * bomber.direction;
+                
+                // Bounce off edges
+                if (bomber.x <= 0 || bomber.x >= canvas.width - bomber.width) {
+                    bomber.direction *= -1;
+                }
+                
+                // Drop bombs
+                bomber.dropTimer++;
+                if (bomber.dropTimer > 180 + Math.random() * 120) {
+                    createBomb(bomber.x + bomber.width/2 - 6, bomber.y + bomber.height);
+                    bomber.dropTimer = 0;
+                }
+                
+                // Remove bombers that are off screen for too long
+                if (bomber.x < -100 || bomber.x > canvas.width + 100) {
+                    bombers.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateBombs() {
+            for (let i = bombs.length - 1; i >= 0; i--) {
+                const bomb = bombs[i];
+                
+                // Self-guided movement - bombs track the player
+                const targetX = player.x + player.width / 2;
+                const targetY = player.y + player.height / 2;
+                
+                // Calculate direction to player
+                const dx = targetX - (bomb.x + bomb.width / 2);
+                const dy = targetY - (bomb.y + bomb.height / 2);
+                
+                // Normalize and apply movement
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > 0) {
+                    bomb.x += (dx / distance) * bomb.speed;
+                    bomb.y += (dy / distance) * bomb.speed;
+                }
+                
+                // Remove bombs that go off screen
+                if (bomb.y > canvas.height + 50 || bomb.x < -50 || bomb.x > canvas.width + 50) {
+                    bombs.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateHelicopters() {
+            for (let i = helicopters.length - 1; i >= 0; i--) {
+                const helicopter = helicopters[i];
+                
+                // Move helicopter
+                helicopter.x += helicopter.speed * helicopter.direction;
+                
+                // Bounce off edges
+                if (helicopter.x <= 0 || helicopter.x >= canvas.width - helicopter.width) {
+                    helicopter.direction *= -1;
+                }
+                
+                // Drop paratroopers
+                helicopter.dropTimer++;
+                if (helicopter.dropTimer > 120 + Math.random() * 60) {
+                    createParatrooper(helicopter.x + helicopter.width/2 - 15, helicopter.y + helicopter.height);
+                    helicopter.dropTimer = 0;
+                }
+                
+                // Remove helicopters that are off screen for too long
+                if (helicopter.x < -100 || helicopter.x > canvas.width + 100) {
+                    helicopters.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateParatroopers() {
+            for (let i = paratroopers.length - 1; i >= 0; i--) {
+                const paratrooper = paratroopers[i];
+                paratrooper.y += paratrooperSpeed;
+                
+                // Check if paratrooper landed
+                if (paratrooper.y >= canvas.height - paratrooper.height - 10 && !paratrooper.landed) {
+                    paratrooper.landed = true;
+                    lives--;
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+                
+                // Remove paratroopers that are off screen
+                if (paratrooper.y > canvas.height + 50) {
+                    paratroopers.splice(i, 1);
+                }
+            }
+        }
+        
+        function checkCollisions() {
+            // Check bullet-paratrooper collisions
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                for (let j = paratroopers.length - 1; j >= 0; j--) {
+                    const paratrooper = paratroopers[j];
+                    if (bullet.x < paratrooper.x + paratrooper.width &&
+                        bullet.x + bullet.width > paratrooper.x &&
+                        bullet.y < paratrooper.y + paratrooper.height &&
+                        bullet.y + bullet.height > paratrooper.y) {
+                        
+                        // Collision detected
+                        bullets.splice(i, 1);
+                        paratroopers.splice(j, 1);
+                        score += 25;
+                        
+                        // Create explosion effect
+                        createExplosion(paratrooper.x + paratrooper.width/2, paratrooper.y + paratrooper.height/2);
+                        break;
+                    }
+                }
+            }
+            
+            // Check bullet-helicopter collisions
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                for (let j = helicopters.length - 1; j >= 0; j--) {
+                    const helicopter = helicopters[j];
+                    if (bullet.x < helicopter.x + helicopter.width &&
+                        bullet.x + bullet.width > helicopter.x &&
+                        bullet.y < helicopter.y + helicopter.height &&
+                        bullet.y + bullet.height > helicopter.y) {
+                        
+                        // Collision detected
+                        bullets.splice(i, 1);
+                        helicopters.splice(j, 1);
+                        score += 50; // 50 points for shooting helicopter
+                        
+                        // Create explosion effect
+                        createExplosion(helicopter.x + helicopter.width/2, helicopter.y + helicopter.height/2);
+                        break;
+                    }
+                }
+            }
+            
+            // Check bullet-bomber collisions
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                for (let j = bombers.length - 1; j >= 0; j--) {
+                    const bomber = bombers[j];
+                    if (bullet.x < bomber.x + bomber.width &&
+                        bullet.x + bullet.width > bomber.x &&
+                        bullet.y < bomber.y + bomber.height &&
+                        bullet.y + bullet.height > bomber.y) {
+                        
+                        // Collision detected
+                        bullets.splice(i, 1);
+                        bombers.splice(j, 1);
+                        score += 100; // 100 points for shooting bomber
+                        
+                        // Create explosion effect
+                        createExplosion(bomber.x + bomber.width/2, bomber.y + bomber.height/2);
+                        break;
+                    }
+                }
+            }
+            
+            // Check bullet-bomb collisions
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                for (let j = bombs.length - 1; j >= 0; j--) {
+                    const bomb = bombs[j];
+                    if (bullet.x < bomb.x + bomb.width &&
+                        bullet.x + bullet.width > bomb.x &&
+                        bullet.y < bomb.y + bomb.height &&
+                        bullet.y + bullet.height > bomb.y) {
+                        
+                        // Collision detected
+                        bullets.splice(i, 1);
+                        bombs.splice(j, 1);
+                        score += 200; // 200 points for shooting bomb
+                        
+                        // Create explosion effect
+                        createExplosion(bomb.x + bomb.width/2, bomb.y + bomb.height/2);
+                        break;
+                    }
+                }
+            }
+            
+            // Check bomb-player collisions (lose all lives)
+            for (let i = bombs.length - 1; i >= 0; i--) {
+                const bomb = bombs[i];
+                if (player.x < bomb.x + bomb.width &&
+                    player.x + player.width > bomb.x &&
+                    player.y < bomb.y + bomb.height &&
+                    player.y + player.height > bomb.y) {
+                    
+                    // Remove bomb and lose all lives
+                    bombs.splice(i, 1);
+                    lives -= 3;
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                    return;
+                }
+            }
+        }
+        
+        function createExplosion(x, y) {
+            // Simple explosion effect
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const speed = 3;
+                const particle = {
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 20,
+                    color: '#f39c12'
+                };
+                // Add to a particles array if you want to implement particle effects
+            }
+        }
+        
+        function drawPlayer() {
+            // Draw soldier
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Draw gun
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(player.x + player.width/2 - 2, player.y - 10, 4, 15);
+            
+            // Draw helmet
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(player.x + 5, player.y, player.width - 10, 8);
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#f39c12';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+        }
+        
+        function drawBombers() {
+            bombers.forEach(bomber => {
+                // Draw bomber body
+                ctx.fillStyle = bomber.color;
+                ctx.fillRect(bomber.x, bomber.y, bomber.width, bomber.height);
+                
+                // Draw bomber wings
+                ctx.fillStyle = '#654321';
+                ctx.fillRect(bomber.x - 15, bomber.y + 5, 15, 15);
+                ctx.fillRect(bomber.x + bomber.width, bomber.y + 5, 15, 15);
+                
+                // Draw bomber cockpit
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(bomber.x + 20, bomber.y + 5, 20, 10);
+                
+                // Draw bomber propeller
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(bomber.x - 5, bomber.y + bomber.height/2);
+                ctx.lineTo(bomber.x + 5, bomber.y + bomber.height/2);
+                ctx.stroke();
+            });
+        }
+        
+        function drawBombs() {
+            bombs.forEach(bomb => {
+                // Draw bomb body with glow effect for visibility
+                ctx.shadowColor = '#e74c3c';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = bomb.color;
+                ctx.fillRect(bomb.x, bomb.y, bomb.width, bomb.height);
+                ctx.shadowBlur = 0;
+                
+                // Draw bomb fuse
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(bomb.x + bomb.width/2 - 1, bomb.y - 5, 2, 5);
+                
+                // Draw bomb fins
+                ctx.fillStyle = '#95a5a6';
+                ctx.fillRect(bomb.x - 2, bomb.y + bomb.height - 3, 4, 3);
+                ctx.fillRect(bomb.x + bomb.width - 2, bomb.y + bomb.height - 3, 4, 3);
+                
+                // Draw bomb outline for better visibility
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(bomb.x, bomb.y, bomb.width, bomb.height);
+            });
+        }
+        
+        function drawHelicopters() {
+            helicopters.forEach(helicopter => {
+                // Draw helicopter body
+                ctx.fillStyle = helicopter.color;
+                ctx.fillRect(helicopter.x, helicopter.y, helicopter.width, helicopter.height);
+                
+                // Draw helicopter rotor
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(helicopter.x - 10, helicopter.y + helicopter.height/2);
+                ctx.lineTo(helicopter.x + helicopter.width + 10, helicopter.y + helicopter.height/2);
+                ctx.stroke();
+                
+                // Draw helicopter tail
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(helicopter.x + helicopter.width - 5, helicopter.y - 15, 5, 15);
+                
+                // Draw helicopter windows
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(helicopter.x + 10, helicopter.y + 5, 15, 10);
+                ctx.fillRect(helicopter.x + 35, helicopter.y + 5, 15, 10);
+            });
+        }
+        
+        function drawParatroopers() {
+            paratroopers.forEach(paratrooper => {
+                // Draw parachute
+                ctx.fillStyle = '#ecf0f1';
+                ctx.beginPath();
+                ctx.arc(paratrooper.x + paratrooper.width/2, paratrooper.y - 20, 25, 0, Math.PI, true);
+                ctx.fill();
+                
+                // Draw paratrooper
+                ctx.fillStyle = paratrooper.color;
+                ctx.fillRect(paratrooper.x, paratrooper.y, paratrooper.width, paratrooper.height);
+                
+                // Draw strings
+                ctx.strokeStyle = '#bdc3c7';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(paratrooper.x + 5, paratrooper.y);
+                ctx.lineTo(paratrooper.x + 5, paratrooper.y - 20);
+                ctx.moveTo(paratrooper.x + paratrooper.width - 5, paratrooper.y);
+                ctx.lineTo(paratrooper.x + paratrooper.width - 5, paratrooper.y - 20);
+                ctx.stroke();
+            });
+        }
+        
+        function drawBackground() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98FB98');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Ground
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+        }
+        
+        function gameOver() {
+            isGameOver = true;
+            
+            // Game over overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = '3rem Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 30);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '1.5rem Arial';
+            ctx.fillText(`Final Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+            ctx.fillText('Press Space to Restart', canvas.width/2, canvas.height/2 + 50);
+        }
+        
+        function restart() {
+            player = {
+                x: canvas.width / 2,
+                y: canvas.height - 50,
+                width: 30,
+                height: 40,
+                speed: 5
+            };
+            bullets = [];
+            paratroopers = [];
+            helicopters = [];
+            bombers = [];
+            bombs = [];
+            score = 0;
+            lives = 3;
+            level = 1;
+            isGameOver = false;
+            paratrooperTimer = 0;
+            helicopterTimer = 0;
+            bomberTimer = 0;
+            bulletSpeed = 8;
+            paratrooperSpeed = 1;
+            bombSpeed = 3;
+        }
+        
+        function update() {
+            if (isGameOver) return;
+            
+            updateBullets();
+            updateBombers();
+            updateBombs();
+            updateHelicopters();
+            updateParatroopers();
+            checkCollisions();
+            
+            // Create bombers (more frequent for testing)
+            bomberTimer++;
+            if (bomberTimer > 300 + Math.random() * 200) {
+                createBomber();
+                bomberTimer = 0;
+            }
+            
+            // Create helicopters
+            helicopterTimer++;
+            if (helicopterTimer > 300 + Math.random() * 200) {
+                createHelicopter();
+                helicopterTimer = 0;
+            }
+            
+            // Increase difficulty
+            if (score > level * 100) {
+                level++;
+                paratrooperSpeed += 0.2;
+                bulletSpeed += 0.5;
+            }
+            
+            // Update UI
+            document.getElementById('score').textContent = `Score: ${score}`;
+            document.getElementById('lives').textContent = `Lives: ${lives}`;
+            document.getElementById('level').textContent = `Level: ${level}`;
+            document.getElementById('scoreHud').textContent = `Score: ${score}`;
+            document.getElementById('livesHud').textContent = `Lives: ${lives}`;
+        }
+        
+        function draw() {
+            drawBackground();
+            drawBombers();
+            drawBombs();
+            drawHelicopters();
+            drawParatroopers();
+            drawBullets();
+            drawPlayer();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (isGameOver) {
+                    restart();
+                } else {
+                    createBullet();
+                }
+            }
+        });
+        
+        // Player movement
+        let keys = {};
+        document.addEventListener('keydown', e => {
+            keys[e.code] = true;
+        });
+        
+        document.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+        
+        function handlePlayerMovement() {
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+        }
+        
+        // Update player movement in the game loop
+        const originalUpdate = update;
+        update = function() {
+            if (!isGameOver) {
+                handlePlayerMovement();
+            }
+            originalUpdate();
+        };
+        
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        // Update button text based on fullscreen state
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('msfullscreenchange', updateFullscreenButton);
+        
+        function updateFullscreenButton() {
+            const btn = document.querySelector('.fullscreen-btn');
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                btn.textContent = '⛶ Exit Fullscreen';
+            } else {
+                btn.textContent = '⛶ Fullscreen';
+            }
+        }
+        
+        // Start the game
+        gameLoop();
+    </script>
+</body>
+</html> 

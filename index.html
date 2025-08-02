@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Games</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+            margin: 0;
+        }
+        h1 {
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-align: center;
+        }
+        .game-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .game-buttons button {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 8px;
+            background: #4caf50;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .game-buttons button:hover {
+            background: #388e3c;
+        }
+    </style>
+</head>
+<body>
+    <h1>HTML Games</h1>
+    <div class="game-buttons">
+        <button onclick="location.href='snake.html'">Snake Game</button>
+        <button onclick="location.href='geometry-dash.html'">Geometry Dash</button>
+        <button onclick="location.href='paratrooper.html'">Paratrooper</button>
+        <button onclick="location.href='realracing3-f1.html'">Real Racing 3 - F1</button>
+        <!-- Add more game buttons here -->
+    </div>
+</body>
+</html> 
